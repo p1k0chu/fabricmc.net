@@ -1,6 +1,8 @@
 ENTRYPOINT=main.ts
 DENO_PERMISSIONS=--allow-net --allow-env --allow-read --allow-write
 
+DENO_FREEZE ?= true
+
 run: fontgen
 	cd ../scripts; \
 		npm install; \
@@ -11,13 +13,13 @@ check:
 	deno check $(ENTRYPOINT)
 
 fontgen:
-	deno run --allow-read --allow-write fontgen.ts
+	deno run --allow-read --allow-write --frozen=$(DENO_FREEZE) fontgen.ts
 
 test: fontgen check
-	deno test --allow-env --allow-read --allow-net --allow-write --allow-run test.ts
+	deno test --allow-env --allow-read --allow-net --allow-write --allow-run --frozen=$(DENO_FREEZE) test.ts
 
 build: fontgen check
-	deno run --allow-env --allow-read --allow-net --allow-write --allow-run bundle.ts
+	deno run --allow-env --allow-read --allow-net --allow-write --allow-run --frozen=$(DENO_FREEZE) bundle.ts
 
 install: build
 	deno install $(DENO_PERMISSIONS) -f -n fabric bundled.ts
