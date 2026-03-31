@@ -17,5 +17,5 @@ RUN curl -fsSL https://deno.land/x/install/install.sh | sh -s v2.1.10
 ENV PATH="${PATH}:$HOME/.deno/bin"
 
 ENV JAVA_HOME=/opt/java/openjdk
-COPY --from=eclipse-temurin:21 $JAVA_HOME $JAVA_HOME
+COPY --from=eclipse-temurin:25 $JAVA_HOME $JAVA_HOME
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
