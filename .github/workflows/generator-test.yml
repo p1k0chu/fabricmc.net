@@ -10,7 +10,7 @@ jobs:
         with:
           runCmd: |
             cd cli
-            make run test
+            make DENO_FREEZE=false run test
       - uses: actions/upload-artifact@v4
         with:
           path: 
