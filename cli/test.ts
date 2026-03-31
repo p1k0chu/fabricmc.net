@@ -25,65 +25,67 @@ const minecraftVersions = await getTemplateGameVersions();
 for (const { version } of minecraftVersions) {
   for (const mapping of ["yarn", "mojmap"]) {
 
-	if (mapping === "yarn" && minecraftIsUnobfuscated(version)) {
-	  continue;
-	}
+    if (mapping === "yarn" && minecraftIsUnobfuscated(version)) {
+      continue;
+    }
 
     for (const language of ["java", "kotlin"]) {
       for (const dsl of ["groovy", "kotlin"]) {
-        const testId = `${version}_${mapping}_${language}_${dsl}`;
-        const outDir = `${rootDir}/${testId}`;
+        for (const datagen of [true, false]) {
+          const testId = `${version}_${mapping}_${language}_${dsl}_datagen${datagen}`;
+          const outDir = `${rootDir}/${testId}`;
 
-        Deno.test(testId, async () => {
-          let success = false;
+          Deno.test(testId, async () => {
+            let success = false;
 
-          // try rebuilding if it fail, usual gradle stuff
-          for (let i = 0; i < 3; i++) {
-            const options = getGeneratorOptions(inDir, {
-              modid: "test",
-              projectName: "test",
-              packageName: "net.fabricmc.generator.test",
-              dataGeneration: false,
-              splitSources: minecraftSupportsSplitSources(version),
-              uniqueModIcon: true,
+            // try rebuilding if it fail, usual gradle stuff
+            for (let i = 0; i < 3; i++) {
+              const options = getGeneratorOptions(inDir, {
+                modid: "test",
+                projectName: "test",
+                packageName: "net.fabricmc.generator.test",
+                dataGeneration: datagen,
+                splitSources: minecraftSupportsSplitSources(version),
+                uniqueModIcon: true,
 
-              minecraftVersion: version,
-              mojmap: mapping === "mojmap",
-              useKotlin: language === "kotlin",
-              gradleKotlin: dsl === "kotlin",
-            });
+                minecraftVersion: version,
+                mojmap: mapping === "mojmap",
+                useKotlin: language === "kotlin",
+                gradleKotlin: dsl === "kotlin",
+              });
 
-            await generateTemplate(options);
+              await generateTemplate(options);
 
-            // build in the same directory for all test
-            // to make it use only one daemon and build cache
-            for await (const { name } of Deno.readDir(inDir)) {
-              await fs.copy(`${inDir}/${name}`, `${runDir}/${name}`);
+              // build in the same directory for all test
+              // to make it use only one daemon and build cache
+              for await (const { name } of Deno.readDir(inDir)) {
+                await fs.copy(`${inDir}/${name}`, `${runDir}/${name}`);
+              }
+
+              Deno.chdir(runDir);
+              const gradle = new Deno.Command("./gradlew", {
+                args: [datagen ? "runDatagen" : "build"],
+              }).spawn();
+              Deno.chdir(cwd);
+
+              const output = await gradle.output();
+
+              for await (const { name } of Deno.readDir(inDir)) {
+                await Deno.remove(`${runDir}/${name}`, { recursive: true });
+              }
+
+              await Deno.remove(inDir, { recursive: true });
+
+              if (output.success) {
+                await fs.move(`${runDir}/build/libs`, `${outDir}`);
+                success = true;
+                break;
+              }
             }
 
-            Deno.chdir(runDir);
-            const gradle = new Deno.Command("./gradlew", {
-              args: ["build"],
-            }).spawn();
-            Deno.chdir(cwd);
-
-            const output = await gradle.output();
-
-            for await (const { name } of Deno.readDir(inDir)) {
-              await Deno.remove(`${runDir}/${name}`, { recursive: true });
-            }
-
-            await Deno.remove(inDir, { recursive: true });
-
-            if (output.success) {
-              await fs.move(`${runDir}/build/libs`, `${outDir}`);
-              success = true;
-              break;
-            }
-          }
-
-          assert(success);
-        });
+            assert(success);
+          });
+        }
       }
     }
   }
